@@ -55,37 +55,37 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center p-2 sm:p-4">
+<body class="bg-gray-900 text-white flex flex-col items-center p-2 h-screen">
 
-    <div class="w-full max-w-4xl mx-auto flex flex-col items-center flex-grow">
-        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold my-2 text-center">Нейро-поток: Тренажёр</h1>
-        <p class="text-gray-400 mb-2 sm:mb-4 text-sm sm:text-base text-center">Ваш текущий рекорд: <span id="highScoreDisplay" class="font-bold">0</span></p>
+    <div class="w-full max-w-4xl mx-auto flex flex-col items-center flex-grow min-h-0">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold my-1 sm:my-2 text-center">Нейро-поток: Тренажёр</h1>
+        <p class="text-gray-400 mb-2 text-sm sm:text-base text-center">Ваш текущий рекорд: <span id="highScoreDisplay" class="font-bold">0</span></p>
 
-        <div class="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-2 sm:mb-4 w-full justify-center">
-            <div class="score-card p-2 sm:p-4 rounded-lg text-center flex-1">
-                <h2 class="text-sm sm:text-lg font-semibold text-blue-400">Левая рука</h2>
-                <p id="leftScore" class="text-2xl sm:text-3xl font-bold">0</p>
+        <div class="flex gap-2 mb-2 w-full justify-center">
+            <div class="score-card p-2 rounded-lg text-center flex-1">
+                <h2 class="text-xs sm:text-lg font-semibold text-blue-400">Левая рука</h2>
+                <p id="leftScore" class="text-xl sm:text-3xl font-bold">0</p>
             </div>
-             <div class="score-card p-2 sm:p-4 rounded-lg text-center flex-1">
-                <h2 class="text-sm sm:text-lg font-semibold text-gray-300">Время</h2>
-                <p id="timerDisplay" class="text-2xl sm:text-3xl font-bold">0:00</p>
+             <div class="score-card p-2 rounded-lg text-center flex-1">
+                <h2 class="text-xs sm:text-lg font-semibold text-gray-300">Время</h2>
+                <p id="timerDisplay" class="text-xl sm:text-3xl font-bold">0:00</p>
             </div>
-            <div class="score-card p-2 sm:p-4 rounded-lg text-center flex-1">
-                <h2 class="text-sm sm:text-lg font-semibold text-orange-400">Правая рука</h2>
-                <p id="rightScore" class="text-2xl sm:text-3xl font-bold">0</p>
+            <div class="score-card p-2 rounded-lg text-center flex-1">
+                <h2 class="text-xs sm:text-lg font-semibold text-orange-400">Правая рука</h2>
+                <p id="rightScore" class="text-xl sm:text-3xl font-bold">0</p>
             </div>
         </div>
 
         <div class="relative w-full flex-grow">
              <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
-            <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-lg overlay">
-                <div class="w-full max-w-md">
-                    <h2 class="text-xl sm:text-2xl font-bold mb-2">Инструкция</h2>
+            <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center text-center p-2 rounded-lg overlay">
+                <div class="w-full max-w-md overflow-y-auto max-h-full p-2">
+                    <h2 class="text-lg sm:text-2xl font-bold mb-2">Инструкция</h2>
                     <p class="text-sm sm:text-base mb-1"><strong class="text-blue-400">Левая рука:</strong> Управляйте роботом (стрелки/джойстик), собирайте кристаллы.</p>
                     <p class="text-sm sm:text-base mb-3"><strong class="text-orange-400">Правая рука:</strong> Касайтесь/кликайте по сферам энергии.</p>
                     
-                    <h3 class="text-lg sm:text-xl font-bold mb-2">Длительность</h3>
-                    <div class="duration-selector flex justify-center gap-2 sm:gap-4 mb-4">
+                    <h3 class="text-base sm:text-xl font-bold mb-2">Длительность</h3>
+                    <div class="duration-selector flex justify-center gap-2 sm:gap-4 mb-4 text-sm">
                         <div><input type="radio" id="1min" name="duration" value="60" checked><label for="1min">1 мин</label></div>
                         <div><input type="radio" id="2min" name="duration" value="120"><label for="2min">2 мин</label></div>
                         <div><input type="radio" id="3min" name="duration" value="180"><label for="3min">3 мин</label></div>
