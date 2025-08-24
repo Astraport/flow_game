@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Нейро-поток: Игра-тренажёр v1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            overscroll-behavior: none;
+        }
+        canvas {
+            background-color: #1a202c;
+            cursor: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .score-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .overlay {
+             background-color: rgba(0,0,0,0.5);
+             backdrop-filter: blur(10px);
+        }
+        .modal { background-color: #2d3748; }
+        .duration-selector input[type="radio"] { display: none; }
+        .duration-selector label {
+            cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.1); transition: all 0.2s ease-in-out;
+        }
+        .duration-selector input[type="radio"]:checked + label {
+            background-color: #4f46e5; color: white; font-weight: bold;
+        }
+        #joystick-container {
+            position: fixed; bottom: 20px; left: 20px; z-index: 10;
+            display: none; /* Hidden by default */
+        }
+        #joystick-base {
+            width: 120px; height: 120px; background-color: rgba(255,255,255,0.1);
+            border-radius: 50%; position: relative;
+        }
+        #joystick-handle {
+            width: 60px; height: 60px; background-color: rgba(255,255,255,0.3);
+            border-radius: 50%; position: absolute;
+            top: 30px; left: 30px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl mx-auto flex flex-col items-center">
+        <h1 class="text-3xl md:text-4xl font-bold mb-2 text-center">Нейро-поток: Тренажёр</h1>
+        <p class="text-gray-400 mb-4 text-center">Ваш текущий рекорд: <span id="highScoreDisplay" class="font-bold">0</span></p>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-4 w-full justify-center">
+            <div class="score-card p-4 rounded-lg text-center flex-1">
+                <h2 class="text-lg font-semibold text-blue-400">Левая рука (Движение)</h2>
+                <p id="leftScore" class="text-3xl font-bold">0</p>
+            </div>
+             <div class="score-card p-4 rounded-lg text-center flex-1">
+                <h2 class="text-lg font-semibold text-gray-300">Осталось времени</h2>
+                <p id="timerDisplay" class="text-3xl font-bold">0:00</p>
+            </div>
+            <div class="score-card p-4 rounded-lg text-center flex-1">
+                <h2 class="text-lg font-semibold text-orange-400">Правая рука (Касание)</h2>
+                <p id="rightScore" class="text-3xl font-bold">0</p>
+            </div>
+        </div>
+
+        <div class="relative w-full" style="padding-bottom: 60%;">
+             <canvas id="gameCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+            <div id="startScreen" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-lg overlay">
+                <div class="max-w-md">
+                    <h2 class="text-2xl font-bold mb-4">Инструкция</h2>
+                    <p class="mb-2"><strong class="text-blue-400">Левая рука:</strong> Управляйте роботом (стрелки/джойстик), собирайте кристаллы.</p>
+                    <p class="mb-4"><strong class="text-orange-400">Правая рука:</strong> Касайтесь/кликайте по сферам энергии.</p>
+                    
+                    <h3 class="text-xl font-bold mb-2">Длительность игры</h3>
+                    <div class="duration-selector flex justify-center gap-4 mb-6">
+                        <div><input type="radio" id="1min" name="duration" value="60" checked><label for="1min">1 мин</label></div>
+                        <div><input type="radio" id="2min" name="duration" value="120"><label for="2min">2 мин</label></div>
+                        <div><input type="radio" id="3min" name="duration" value="180"><label for="3min">3 мин</label></div>
+                    </div>
+                    
+                    <div class="flex items-center justify-center mb-6">
+                        <input type="checkbox" id="soundCheckbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        <label for="soundCheckbox" class="ml-2 block text-sm text-gray-300">Включить звук</label>
+                    </div>
+
+                    <button id="startButton" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                        Начать
+                    </button>
+                </div>
+            </div>
+            <div id="endGameModal" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-4 rounded-lg overlay">
+                <div class="modal p-8 rounded-lg shadow-2xl max-w-sm w-full">
+                    <h2 id="endGameTitle" class="text-3xl font-bold mb-2 text-yellow-300">Поздравляем!</h2>
+                    <p id="endGameMessage" class="text-lg mb-4">Новый рекорд!</p>
+                    <p class="text-xl mb-1">Ваш результат: <span id="finalScore" class="font-bold text-2xl">0</span></p>
+                    <p class="text-gray-400 mb-6">Общий рекорд: <span id="finalHighScore" class="font-bold">0</span></p>
+                    <button id="playAgainButton" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105">
+                        Играть снова
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="joystick-container">
+        <div id="joystick-base">
+            <div id="joystick-handle"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const endGameModal = document.getElementById('endGameModal');
+        const playAgainButton = document.getElementById('playAgainButton');
+        const leftScoreEl = document.getElementById('leftScore');
+        const rightScoreEl = document.getElementById('rightScore');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const finalScore = document.getElementById('finalScore');
+        const finalHighScore = document.getElementById('finalHighScore');
+        const endGameTitle = document.getElementById('endGameTitle');
+        const endGameMessage = document.getElementById('endGameMessage');
+        const soundCheckbox = document.getElementById('soundCheckbox');
+
+        // --- Game State ---
+        let gameRunning = false, animationFrameId, gameTimer, timeLeft = 0, highScore = 0;
+        let scores = { left: 0, right: 0 };
+        const keysPressed = {};
+        let soundEnabled = false;
+        let isTouchDevice = false;
+
+        // --- Affirmations ---
+        const affirmations = ["Я спокоен и сосредоточен", "Мой разум ясен и чист", "Я нахожусь в потоке", "Каждое движение гармонично", "Я доверяю своему подсознанию", "Все происходит легко и без усилий", "Мой мозг работает на 100%"];
+        let currentAffirmation = "", affirmationAlpha = 0, affirmationFadeIn = true, affirmationInterval;
+
+        // --- Game Objects ---
+        let hero = { x: 50, y: 50, width: 40, height: 40, speed: 4 };
+        let gem = { x: 0, y: 0, radius: 20, angle: 0 };
+        let orb = { x: 0, y: 0, radius: 30, lifetime: 120, maxLifetime: 120, scale: 1 };
+        let crosshair = { x: 0, y: 0, radius: 10, color: 'rgba(255, 255, 255, 0.5)' };
+        let particles = [];
+        
+        // --- Sound Engine (Tone.js) ---
+        let synth;
+        try {
+            synth = new Tone.Synth().toDestination();
+        } catch (e) {
+            console.error("Could not initialize Tone.js", e);
+        }
+
+        function playCollectSound() {
+            if (soundEnabled && synth) synth.triggerAttackRelease("C5", "8n");
+        }
+        function playHitSound() {
+            if (soundEnabled && synth) synth.triggerAttackRelease("G5", "8n");
+        }
+
+        // --- Drawing Functions ---
+        function drawHero(x, y, size) {
+            ctx.fillStyle = '#60a5fa'; // body
+            ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = '#2563eb'; // eye
+            ctx.fillRect(x + size * 0.35, y + size * 0.2, size * 0.3, size * 0.3);
+        }
+
+        function drawGem(x, y, size, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = '#a78bfa';
+            ctx.beginPath();
+            ctx.moveTo(0, -size);
+            ctx.lineTo(size * 0.8, -size * 0.2);
+            ctx.lineTo(size * 0.5, size);
+            ctx.lineTo(-size * 0.5, size);
+            ctx.lineTo(-size * 0.8, -size * 0.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawOrb(x, y, size, scale) {
+            const gradient = ctx.createRadialGradient(x, y, size * 0.2, x, y, size);
+            gradient.addColorStop(0, 'rgba(251, 146, 60, 1)');
+            gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, size * scale, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // --- Utility & Game Lifecycle ---
+        function getHighScore() { return parseInt(localStorage.getItem('neuroFlowHighScore') || '0'); }
+        function setHighScore(score) {
+            localStorage.setItem('neuroFlowHighScore', score);
+            highScore = score;
+            highScoreDisplay.textContent = score;
+        }
+        function getRandomPosition() {
+            const padding = 40;
+            return { x: Math.random() * (canvas.width - padding * 2) + padding, y: Math.random() * (canvas.height - padding * 2) + padding };
+        }
+        function changeAffirmation() {
+            affirmationFadeIn = true;
+            currentAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
+        }
+
+        function startGame() {
+            if (Tone.context.state !== 'running') {
+                Tone.context.resume();
+            }
+            const duration = document.querySelector('input[name="duration"]:checked').value;
+            timeLeft = parseInt(duration, 10);
+            startScreen.style.display = 'none';
+            gameRunning = true;
+            resetGame();
+            
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+            
+            changeAffirmation();
+            affirmationInterval = setInterval(changeAffirmation, 6000);
+            gameLoop();
+        }
+
+        function endGame() {
+            clearInterval(gameTimer);
+            clearInterval(affirmationInterval);
+            gameRunning = false;
+            cancelAnimationFrame(animationFrameId);
+            const totalScore = scores.left + scores.right;
+            finalScore.textContent = totalScore;
+            finalHighScore.textContent = highScore;
+            if (totalScore > highScore) {
+                setHighScore(totalScore);
+                finalHighScore.textContent = totalScore;
+                endGameTitle.textContent = "Поздравляем!";
+                endGameMessage.textContent = "Новый рекорд!";
+            } else {
+                endGameTitle.textContent = "Время вышло!";
+                endGameMessage.textContent = "Отличная попытка!";
+            }
+            endGameModal.classList.remove('hidden');
+            endGameModal.classList.add('flex');
+        }
+
+        function resetGame() {
+            scores = { left: 0, right: 0 };
+            leftScoreEl.textContent = 0;
+            rightScoreEl.textContent = 0;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            hero.x = canvas.width / 4; hero.y = canvas.height / 2;
+            Object.assign(gem, getRandomPosition());
+            Object.assign(orb, getRandomPosition());
+            orb.maxLifetime = 120; orb.lifetime = orb.maxLifetime;
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const { width, height } = container.getBoundingClientRect();
+            canvas.width = width; canvas.height = height;
+            if (gameRunning) draw();
+        }
+
+        // --- Event Listeners ---
+        window.addEventListener('keydown', (e) => { keysPressed[e.key] = true; });
+        window.addEventListener('keyup', (e) => { keysPressed[e.key] = false; });
+        
+        function handlePointerMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            crosshair.x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            crosshair.y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+        }
+        canvas.addEventListener('mousemove', handlePointerMove);
+        canvas.addEventListener('touchmove', handlePointerMove);
+
+
+        function handlePointerDown(e) {
+            if (!gameRunning) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            const clickY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+            const dx = clickX - orb.x;
+            const dy = clickY - orb.y;
+            if (Math.sqrt(dx * dx + dy * dy) < orb.radius) {
+                scores.right++;
+                rightScoreEl.textContent = scores.right;
+                playHitSound();
+                Object.assign(orb, getRandomPosition());
+                orb.lifetime = orb.maxLifetime;
+                if (orb.maxLifetime > 40) orb.maxLifetime -= 2;
+            }
+        }
+        canvas.addEventListener('click', handlePointerDown);
+        canvas.addEventListener('touchstart', handlePointerDown);
+
+        startButton.addEventListener('click', startGame);
+        playAgainButton.addEventListener('click', () => {
+            endGameModal.classList.add('hidden');
+            endGameModal.classList.remove('flex');
+            startScreen.style.display = 'flex';
+        });
+        soundCheckbox.addEventListener('change', (e) => {
+            soundEnabled = e.target.checked;
+            localStorage.setItem('neuroSoundEnabled', soundEnabled);
+        });
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Game Logic (Update) ---
+        function update() {
+            // Hero movement
+            if (keysPressed['ArrowUp'] && hero.y > 0) hero.y -= hero.speed;
+            if (keysPressed['ArrowDown'] && hero.y < canvas.height - hero.height) hero.y += hero.speed;
+            if (keysPressed['ArrowLeft'] && hero.x > 0) hero.x -= hero.speed;
+            if (keysPressed['ArrowRight'] && hero.x < canvas.width - hero.width) hero.x += hero.speed;
+
+            // Collision: hero and gem
+            const dx = hero.x + hero.width / 2 - gem.x;
+            const dy = hero.y + hero.height / 2 - gem.y;
+            if (Math.sqrt(dx * dx + dy * dy) < hero.width / 2 + gem.radius) {
+                scores.left += 2;
+                leftScoreEl.textContent = scores.left;
+                playCollectSound();
+                Object.assign(gem, getRandomPosition());
+            }
+
+            // Orb lifetime & animation
+            orb.lifetime--;
+            if (orb.lifetime <= 0) {
+                Object.assign(orb, getRandomPosition());
+                orb.lifetime = orb.maxLifetime;
+            }
+            orb.scale = 0.8 + Math.sin(Date.now() / 200) * 0.2; // Pulsing effect
+            gem.angle += 0.02; // Spinning effect
+
+            // Affirmation fade
+            if (affirmationFadeIn) {
+                if (affirmationAlpha < 1) affirmationAlpha += 0.005; else affirmationFadeIn = false;
+            } else {
+                if (affirmationAlpha > 0) affirmationAlpha -= 0.005;
+            }
+        }
+
+        // --- Drawing ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = affirmationAlpha * 0.2;
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 2.5vw Inter';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(currentAffirmation, canvas.width / 2, canvas.height / 2);
+            ctx.globalAlpha = 1;
+
+            drawGem(gem.x, gem.y, gem.radius, gem.angle);
+            drawHero(hero.x, hero.y, hero.width);
+            
+            const orbAlpha = orb.lifetime / orb.maxLifetime;
+            ctx.globalAlpha = Math.max(0.2, orbAlpha);
+            drawOrb(orb.x, orb.y, orb.radius, orb.scale);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(orb.x, orb.y, orb.radius, -Math.PI / 2, (-Math.PI / 2) + (orbAlpha * Math.PI * 2));
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            if (!isTouchDevice) {
+                ctx.strokeStyle = crosshair.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(crosshair.x, crosshair.y, crosshair.radius, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(crosshair.x - crosshair.radius - 5, crosshair.y); ctx.lineTo(crosshair.x + crosshair.radius + 5, crosshair.y);
+                ctx.moveTo(crosshair.x, crosshair.y - crosshair.radius - 5); ctx.lineTo(crosshair.x, crosshair.y + crosshair.radius + 5); ctx.stroke();
+            }
+        }
+
+        // --- Main Loop ---
+        function gameLoop() {
+            if (!gameRunning) return;
+            update();
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Joystick Logic ---
+        const joystickContainer = document.getElementById('joystick-container');
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickHandle = document.getElementById('joystick-handle');
+        let joystickActive = false;
+        let joystickStartX = 0, joystickStartY = 0;
+        const maxJoystickDist = joystickBase.offsetWidth / 2 - joystickHandle.offsetWidth / 2;
+
+        function handleJoystickStart(e) {
+            joystickActive = true;
+            joystickStartX = e.touches[0].clientX;
+            joystickStartY = e.touches[0].clientY;
+        }
+
+        function handleJoystickMove(e) {
+            if (!joystickActive) return;
+            e.preventDefault();
+            let dx = e.touches[0].clientX - joystickStartX;
+            let dy = e.touches[0].clientY - joystickStartY;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > maxJoystickDist) {
+                dx = (dx / dist) * maxJoystickDist;
+                dy = (dy / dist) * maxJoystickDist;
+            }
+
+            joystickHandle.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            // Update hero movement based on joystick
+            keysPressed['ArrowUp'] = dy < -10;
+            keysPressed['ArrowDown'] = dy > 10;
+            keysPressed['ArrowLeft'] = dx < -10;
+            keysPressed['ArrowRight'] = dx > 10;
+        }
+
+        function handleJoystickEnd() {
+            joystickActive = false;
+            joystickHandle.style.transform = 'translate(0, 0)';
+            keysPressed['ArrowUp'] = keysPressed['ArrowDown'] = keysPressed['ArrowLeft'] = keysPressed['ArrowRight'] = false;
+        }
+
+        // --- Initial Setup ---
+        function init() {
+            isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            if (isTouchDevice) {
+                joystickContainer.style.display = 'block';
+                joystickBase.addEventListener('touchstart', handleJoystickStart, { passive: false });
+                document.addEventListener('touchmove', handleJoystickMove, { passive: false });
+                document.addEventListener('touchend', handleJoystickEnd);
+                canvas.style.cursor = 'default';
+            }
+
+            highScore = getHighScore();
+            highScoreDisplay.textContent = highScore;
+            const savedSoundPref = localStorage.getItem('neuroSoundEnabled');
+            if (savedSoundPref !== null) {
+                soundEnabled = savedSoundPref === 'true';
+                soundCheckbox.checked = soundEnabled;
+            }
+            resizeCanvas();
+        }
+
+        init();
+    </script>
+</body>
+</html>
