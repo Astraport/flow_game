@@ -416,46 +416,42 @@
         let maxJoystickDist = 0;
         const joystickVector = { x: 0, y: 0 };
 
-        function handleTouchStart(e) {
+        function handleCanvasTouchStart(e) {
             if (!gameRunning) return;
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-
             for (const touch of e.changedTouches) {
-                const touchX = touch.clientX;
-                const touchY = touch.clientY;
-                const joystickRect = joystickBase.getBoundingClientRect();
-
-                // Check if touch starts on joystick
-                if (touchX >= joystickRect.left && touchX <= joystickRect.right &&
-                    touchY >= joystickRect.top && touchY <= joystickRect.bottom) {
-                    if (!joystickActive) { // Activate joystick with the first finger
-                        joystickTouchId = touch.identifier;
-                        joystickActive = true;
-                        joystickStartX = touch.clientX;
-                        joystickStartY = touch.clientY;
-                    }
-                } else { // This touch is for the orb
-                    const clickX = touch.clientX - rect.left;
-                    const clickY = touch.clientY - rect.top;
-                    const dx = clickX - orb.x;
-                    const dy = clickY - orb.y;
-                    if (Math.sqrt(dx * dx + dy * dy) < orb.radius) {
-                        scores.right++;
-                        rightScoreEl.textContent = scores.right;
-                        playHitSound();
-                        Object.assign(orb, getRandomPosition());
-                        orb.lifetime = orb.maxLifetime;
-                        if (orb.maxLifetime > 40) orb.maxLifetime -= 2;
-                    }
+                const clickX = touch.clientX - rect.left;
+                const clickY = touch.clientY - rect.top;
+                const dx = clickX - orb.x;
+                const dy = clickY - orb.y;
+                if (Math.sqrt(dx * dx + dy * dy) < orb.radius) {
+                    scores.right++;
+                    rightScoreEl.textContent = scores.right;
+                    playHitSound();
+                    Object.assign(orb, getRandomPosition());
+                    orb.lifetime = orb.maxLifetime;
+                    if (orb.maxLifetime > 40) orb.maxLifetime -= 2;
                 }
             }
         }
 
-        function handleTouchMove(e) {
+        function handleJoystickTouchStart(e) {
             if (!gameRunning) return;
             e.preventDefault();
-            if (!joystickActive) return;
+            e.stopPropagation();
+            if (!joystickActive) {
+                const touch = e.changedTouches[0];
+                joystickTouchId = touch.identifier;
+                joystickActive = true;
+                joystickStartX = touch.clientX;
+                joystickStartY = touch.clientY;
+            }
+        }
+
+        function handleDocumentTouchMove(e) {
+            if (!gameRunning || !joystickActive) return;
+            e.preventDefault();
 
             let joystickTouch = null;
             for (const touch of e.touches) {
@@ -483,7 +479,7 @@
             }
         }
 
-        function handleTouchEnd(e) {
+        function handleDocumentTouchEnd(e) {
             if (!gameRunning) return;
             for (const touch of e.changedTouches) {
                 if (touch.identifier === joystickTouchId) {
@@ -504,11 +500,14 @@
                 joystickContainer.style.display = 'block';
                 maxJoystickDist = joystickBase.offsetWidth / 2 - joystickHandle.offsetWidth / 2;
                 
-                // Replace separate listeners with global ones for multitouch
-                canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-                canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-                canvas.addEventListener('touchend', handleTouchEnd);
-                canvas.addEventListener('touchcancel', handleTouchEnd);
+                // Separate listeners for multitouch
+                canvas.addEventListener('touchstart', handleCanvasTouchStart, { passive: false });
+                joystickBase.addEventListener('touchstart', handleJoystickTouchStart, { passive: false });
+                
+                // Global listeners for move and end to track finger anywhere
+                document.addEventListener('touchmove', handleDocumentTouchMove, { passive: false });
+                document.addEventListener('touchend', handleDocumentTouchEnd);
+                document.addEventListener('touchcancel', handleDocumentTouchEnd);
 
                 canvas.style.cursor = 'default';
             }
