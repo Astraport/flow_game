@@ -334,11 +334,21 @@
 
         // --- Game Logic (Update) ---
         function update() {
+            // Keyboard movement
             if (keysPressed['ArrowUp'] && hero.y > 0) hero.y -= hero.speed;
             if (keysPressed['ArrowDown'] && hero.y < canvas.height - hero.height) hero.y += hero.speed;
             if (keysPressed['ArrowLeft'] && hero.x > 0) hero.x -= hero.speed;
             if (keysPressed['ArrowRight'] && hero.x < canvas.width - hero.width) hero.x += hero.speed;
 
+            // Joystick movement (NEW direct logic)
+            if (isTouchDevice && joystickActive) {
+                const nextX = hero.x + joystickVector.x * hero.speed;
+                const nextY = hero.y + joystickVector.y * hero.speed;
+                if (nextX > 0 && nextX < canvas.width - hero.width) hero.x = nextX;
+                if (nextY > 0 && nextY < canvas.height - hero.height) hero.y = nextY;
+            }
+
+            // Collision detection
             const dx = hero.x + hero.width / 2 - gem.x;
             const dy = hero.y + hero.height / 2 - gem.y;
             if (Math.sqrt(dx * dx + dy * dy) < hero.width / 2 + gem.radius) {
@@ -348,6 +358,7 @@
                 Object.assign(gem, getRandomPosition());
             }
 
+            // Object updates
             orb.lifetime--;
             if (orb.lifetime <= 0) {
                 Object.assign(orb, getRandomPosition());
@@ -409,10 +420,11 @@
         const joystickHandle = document.getElementById('joystick-handle');
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
-        let maxJoystickDist = 0; // Will be calculated in init
+        let maxJoystickDist = 0;
+        const joystickVector = { x: 0, y: 0 }; // Vector for direct control
 
         function handleJoystickStart(e) {
-            e.stopPropagation(); // Prevent canvas click
+            e.stopPropagation();
             joystickActive = true;
             joystickStartX = e.touches[0].clientX;
             joystickStartY = e.touches[0].clientY;
@@ -430,16 +442,19 @@
                 dy = (dy / dist) * maxJoystickDist;
             }
             joystickHandle.style.transform = `translate(${dx}px, ${dy}px)`;
-            keysPressed['ArrowUp'] = dy < -15;
-            keysPressed['ArrowDown'] = dy > 15;
-            keysPressed['ArrowLeft'] = dx < -15;
-            keysPressed['ArrowRight'] = dx > 15;
+            
+            // Update vector based on position
+            if (maxJoystickDist > 0) {
+                joystickVector.x = dx / maxJoystickDist;
+                joystickVector.y = dy / maxJoystickDist;
+            }
         }
 
         function handleJoystickEnd() {
             joystickActive = false;
             joystickHandle.style.transform = 'translate(0, 0)';
-            keysPressed['ArrowUp'] = keysPressed['ArrowDown'] = keysPressed['ArrowLeft'] = keysPressed['ArrowRight'] = false;
+            joystickVector.x = 0;
+            joystickVector.y = 0;
         }
 
         // --- Initial Setup ---
@@ -447,7 +462,6 @@
             isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             if (isTouchDevice) {
                 joystickContainer.style.display = 'block';
-                // Calculate size AFTER it's visible
                 maxJoystickDist = joystickBase.offsetWidth / 2 - joystickHandle.offsetWidth / 2;
                 
                 joystickBase.addEventListener('touchstart', handleJoystickStart, { passive: false });

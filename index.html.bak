@@ -409,9 +409,10 @@
         const joystickHandle = document.getElementById('joystick-handle');
         let joystickActive = false;
         let joystickStartX = 0, joystickStartY = 0;
-        const maxJoystickDist = joystickBase.offsetWidth / 2 - joystickHandle.offsetWidth / 2;
+        let maxJoystickDist = 0; // Will be calculated in init
 
         function handleJoystickStart(e) {
+            e.stopPropagation(); // Prevent canvas click
             joystickActive = true;
             joystickStartX = e.touches[0].clientX;
             joystickStartY = e.touches[0].clientY;
@@ -446,6 +447,9 @@
             isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             if (isTouchDevice) {
                 joystickContainer.style.display = 'block';
+                // Calculate size AFTER it's visible
+                maxJoystickDist = joystickBase.offsetWidth / 2 - joystickHandle.offsetWidth / 2;
+                
                 joystickBase.addEventListener('touchstart', handleJoystickStart, { passive: false });
                 document.addEventListener('touchmove', handleJoystickMove, { passive: false });
                 document.addEventListener('touchend', handleJoystickEnd);
